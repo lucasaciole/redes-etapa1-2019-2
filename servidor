@@ -4,14 +4,20 @@ import re
 import socket
 
 CLIENT_CLOSED_CONNECTION = ''
-CLIENT_SENT_NICK = '\A/nick ([a-zA-Z]+)'
-CLIENT_RENAMED_NICK = '\A/rename ([a-zA-Z]+) ([a-zA-Z]+)'
+CLIENT_SENT_NICK = '\A/nick ([a-zA-Z0-9]+)'
 
 
 class User:
+    """
+    Defines a user on the scope of the server.
+
+    A User can have its status as UNNAMED or NAMED
+    """
+
     def __init__(self):
+        """Define the User object constructor."""
         self.nickname = ""
-        self.status = "UNNAMED"
+        self.named = False
 
 
 def recvln(conn):
@@ -26,37 +32,51 @@ def recvln(conn):
             print("Linha recebida!\n")
             return buffr
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+if __name__ == "__main__":
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(('', 7000))
+    s.listen(5)
 
-s.bind(('', 7000))
-s.listen(5)
-
-print("Aguardando conexão...\n")
-conexao, endereco = s.accept()
-while True:
-    user = User()
-    print("Conectado! Recebendo dados...\n")
-    message = recvln(conexao)
-    message = message.decode()
-    if message == CLIENT_CLOSED_CONNECTION:
-        print("Usuário encerrou a conexão em seu cliente...\n")
-        conexao.close()
-        break
-    elif re.match(CLIENT_SENT_NICK, message):
-        print("Usuário enviou seu nickname/apelido.\n")
-        user.nickname = message.split()[1]
-        conexao.send("/joined %s\n".format(user.nickname).encode())
-    elif re.match(CLIENT_RENAMED_NICK, message):
-        print("Usuário atualizou seu nickname/apelido.\n")
-        old_nick = message.split()[1]
-        if old_nick == user.nickname:
-            user.nickname = message.split()[2]
-            conexao.send(b"/joined\n")
-
-    else:
-        print("Error! Enviando resposta padrão /error...\n")
-        conexao.send(b"/error\n")
-    print("Enviado! Repetindo fluxo...\n")
-print("Conexão encerrada.\n")
+    print("Aguardando conexão...\n")
+    conexao, endereco = s.accept()
+    while True:
+        user = User()
+        print("Conectado! Recebendo dados...\n")
+        message = recvln(conexao)
+        message = message.decode()
+        if message == CLIENT_CLOSED_CONNECTION:
+            print("Usuário encerrou a conexão em seu cliente...\n")
+            if user.named:
+                ret_message = "/quit %s\n".format(user.nickname)
+                print("Enviando %s\n".format(ret_message))
+                conexao.send(ret_message.encode())
+            conexao.close()
+            break
+        elif re.match(CLIENT_SENT_NICK, message):
+            if not user.named:
+                print("Usuário enviou seu nickname/apelido.\n")
+                user.nickname = message.split()[1]
+                user.status = "NAMED"
+                ret_message = "/joined %s\n".format(user.nickname)
+                print("Enviando %s\n".format(ret_message))
+                conexao.send(ret_message.encode())
+            else:
+                print("Usuário atualizou seu nickname/apelido.\n")
+                old_nick = message.split()[1]
+                if old_nick == user.nickname:
+                    user.nickname = message.split()[2]
+                    ret_message = "/renamed %s\n".format(user.nickname)
+                    print("Enviando %s\n".format(ret_message))
+                    conexao.send(ret_message.encode())
+        else:
+            if not user.named:
+                print("Error! Enviando resposta padrão /error...\n")
+                conexao.send(b"/error\n")
+            else:
+                ret_message = "%s %s\n".format(user.nickname, message)
+                print("Enviando %s\n".format(ret_message))
+                conexao.send(ret_message.encode())
+        print("Enviado! Repetindo fluxo...\n")
+    print("Conexão encerrada.\n")
