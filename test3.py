@@ -21,24 +21,24 @@ s.send(myrand(200) + b'\n')
 assert recvline(s) == b'/error\n'
 
 nick = myrand(8)
-s.send(b'/nick %s\n' % nick)
-assert recvline(s) == b'/joined %s\n' % nick
+s.send('/nick %s\n'.format(nick).encode())
+assert recvline(s) == '/joined %s\n'.format(nick).encode()
 
 msg = myrand()
 s.send(msg + b'\n')
-assert recvline(s) == b'%s: %s\n' % (nick, msg)
+assert recvline(s) == '%s: %s\n'.format(nick, msg).encode()
 
 oldnick = nick
 nick = myrand(8)
-s.send(b'/nick %s\n' % nick)
-assert recvline(s) == b'/renamed %s %s\n' % (oldnick, nick)
+s.send('/nick %s\n'.format(nick).encode())
+assert recvline(s) == b'/renamed %s %s\n'.format(oldnick, nick).encode()
 
 msg = myrand()
 s.send(msg + b'\n')
-assert recvline(s) == b'%s: %s\n' % (nick, msg)
+assert recvline(s) == b'%s: %s\n'.format(nick, msg).encode()
 
 msg = myrand()
 s.send(msg + b'\n')
-assert recvline(s) == b'%s: %s\n' % (nick, msg)
+assert recvline(s) == b'%s: %s\n'.format(nick, msg).encode()
 
 s.close()
