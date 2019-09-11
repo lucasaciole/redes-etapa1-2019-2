@@ -20,25 +20,25 @@ assert r==[], 'O servidor não deveria responder enquanto não chegar uma linha 
 s.send(myrand(200) + b'\n')
 assert recvline(s) == b'/error\n'
 
-nick = myrand(8)
-s.send('/nick %s\n'.format(nick).encode())
-assert recvline(s) == '/joined %s\n'.format(nick).encode()
+nick = myrand(8).decode()
+s.send('/nick {}\n'.format(nick).encode())
+assert recvline(s) == '/joined {}\n'.format(nick).encode()
 
-msg = myrand()
-s.send(msg + b'\n')
-assert recvline(s) == '%s: %s\n'.format(nick, msg).encode()
+msg = myrand().decode()
+s.send(msg.encode() + b'\n')
+assert recvline(s) == '{}: {}\n'.format(nick, msg).encode()
 
 oldnick = nick
-nick = myrand(8)
-s.send('/nick %s\n'.format(nick).encode())
-assert recvline(s) == b'/renamed %s %s\n'.format(oldnick, nick).encode()
+nick = myrand(8).decode()
+s.send('/nick {}\n'.format(nick).encode())
+assert recvline(s) == '/renamed {} {}\n'.format(oldnick, nick).encode()
 
-msg = myrand()
-s.send(msg + b'\n')
-assert recvline(s) == b'%s: %s\n'.format(nick, msg).encode()
+msg = myrand().decode()
+s.send(msg.encode() + b'\n')
+assert recvline(s) == '{}: {}\n'.format(nick, msg).encode()
 
-msg = myrand()
-s.send(msg + b'\n')
-assert recvline(s) == b'%s: %s\n'.format(nick, msg).encode()
+msg = myrand().decode()
+s.send(msg.encode() + b'\n')
+assert recvline(s) == '{}: {}\n'.format(nick, msg).encode()
 
 s.close()

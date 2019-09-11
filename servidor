@@ -41,16 +41,16 @@ if __name__ == "__main__":
 
     print("Aguardando conexão...\n")
     conexao, endereco = s.accept()
+    user = User()
     while True:
-        user = User()
         print("Conectado! Recebendo dados...\n")
         message = recvln(conexao)
         message = message.decode()
         if message == CLIENT_CLOSED_CONNECTION:
             print("Usuário encerrou a conexão em seu cliente...\n")
             if user.named:
-                ret_message = "/quit %s\n".format(user.nickname)
-                print("Enviando %s\n".format(ret_message))
+                ret_message = "/quit {}\n".format(user.nickname)
+                print("Enviando {}\n".format(ret_message))
                 conexao.send(ret_message.encode())
             conexao.close()
             break
@@ -58,25 +58,25 @@ if __name__ == "__main__":
             if not user.named:
                 print("Usuário enviou seu nickname/apelido.\n")
                 user.nickname = message.split()[1]
-                user.status = "NAMED"
-                ret_message = "/joined %s\n".format(user.nickname)
-                print("Enviando %s\n".format(ret_message))
+                user.named = True
+                ret_message = "/joined {}\n".format(user.nickname)
+                print("Enviando {}\n".format(ret_message))
                 conexao.send(ret_message.encode())
             else:
                 print("Usuário atualizou seu nickname/apelido.\n")
                 old_nick = message.split()[1]
                 if old_nick == user.nickname:
                     user.nickname = message.split()[2]
-                    ret_message = "/renamed %s\n".format(user.nickname)
-                    print("Enviando %s\n".format(ret_message))
+                    ret_message = "/renamed {}\n".format(user.nickname)
+                    print("Enviando {}\n".format(ret_message))
                     conexao.send(ret_message.encode())
         else:
             if not user.named:
                 print("Error! Enviando resposta padrão /error...\n")
                 conexao.send(b"/error\n")
             else:
-                ret_message = "%s %s\n".format(user.nickname, message)
-                print("Enviando %s\n".format(ret_message))
+                ret_message = "{}: {}\n".format(user.nickname, message)
+                print("Enviando {}\n".format(ret_message))
                 conexao.send(ret_message.encode())
         print("Enviado! Repetindo fluxo...\n")
     print("Conexão encerrada.\n")
