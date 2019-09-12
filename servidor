@@ -64,12 +64,11 @@ if __name__ == "__main__":
                 conexao.send(ret_message.encode())
             else:
                 print("Usuário atualizou seu nickname/apelido.\n")
-                old_nick = message.split()[1]
-                if old_nick == user.nickname:
-                    user.nickname = message.split()[2]
-                    ret_message = "/renamed {}\n".format(user.nickname)
-                    print("Enviando {}\n".format(ret_message))
-                    conexao.send(ret_message.encode())
+                old_nick = user.nickname
+                user.nickname = message.split()[1]
+                ret_message = "/renamed {} {}\n".format(old_nick, user.nickname)
+                print("Enviando {}\n".format(ret_message))
+                conexao.send(ret_message.encode())
         else:
             if not user.named:
                 print("Error! Enviando resposta padrão /error...\n")
