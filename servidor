@@ -23,10 +23,12 @@ class User:
 
 def broadcast_message(connections_list, server_conn, message):
     """Send a message to all connections in the list."""
+    # print("Enviando {} para {} usuários\n".format(message, len(connections_list) - 1))
+    print("bcode: ", message.encode())
+
     for conn in connections_list:
-        if conn is server_conn:
-            continue
-        conn.send(message.encode())
+        if conn is not server_conn:
+            conn.send(message.encode())
 
 
 def recvln(conn):
@@ -45,6 +47,7 @@ def recvln(conn):
 if __name__ == "__main__":
     connections_list = []
     user_list = {}
+    buffer_dict = {}
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('', 7000))
@@ -52,65 +55,70 @@ if __name__ == "__main__":
 
     connections_list.append(server)
 
-    print("Aguardando conexão...\n")
+    print("Aguardando conexões...\n")
     while connections_list:
         ready_sockets, _, _ = select.select(connections_list, [], [])
 
         for curr_socket in ready_sockets:
             if curr_socket is server:
+                print("Esperando novas conexões...\n")
                 new_conn, endereco = server.accept()
                 print("O endereco da nova conexão é {}\n".format(endereco))
                 connections_list.append(new_conn)
                 print("Criando novo usuário...\n")
                 user_list[new_conn] = User()
+                user_list[new_conn].nickname = endereco[1]
+                buffer_dict[new_conn] = b''
             else:
-                print("Recuperando usuário da conexão...\n")
                 user = user_list[curr_socket]
-                print("Conectado! Recebendo dados...\n")
-                message = recvln(curr_socket)
-                message = message.decode()
-                if message == CLIENT_CLOSED_CONNECTION:
-                    print("Usuário encerrou a conexão em seu cliente...\n")
-                    if user.named:
-                        ret_message = "/quit {}\n".format(user.nickname)
-                        print("Enviando {}\n".format(ret_message))
-                        broadcast_message(connections_list, server, ret_message)
-                    curr_socket.close()
-                    connections_list.remove(curr_socket)
-                    user_list.pop(curr_socket)
-                    break
-                elif re.match(CLIENT_SENT_NICK, message):
-                    if not user.named:
-                        print("Usuário enviou seu nickname/apelido.\n")
-                        new_nickname = message.split()[1]
-                        if new_nickname not in map(lambda x: x.nickname, user_list.values()):
-                            user.nickname = new_nickname
-                            user.named = True
-                            ret_message = "/joined {}\n".format(user.nickname)
-                            print("Enviando {}\n".format(ret_message))
+                char = curr_socket.recv(1)
+                buffer_dict[curr_socket] += char
+                if (char == b'\n' or char == b''):
+                    message = buffer_dict[curr_socket]
+                    print("before bcode:", message)
+                    message = message.decode()
+                    print("")
+                    buffer_dict[curr_socket] = b''
+                    print("Mensagem recebida de usuário {}! Tratando: {}\n".format(user.nickname, message))
+
+                    if message == CLIENT_CLOSED_CONNECTION:
+                        print("Usuário encerrou a conexão em seu cliente...\n")
+                        if user.named:
+                            ret_message = "/quit {}\n".format(user.nickname)
                             broadcast_message(connections_list, server, ret_message)
+                        curr_socket.close()
+                        connections_list.remove(curr_socket)
+                        user_list.pop(curr_socket)
+                        buffer_dict.pop(curr_socket)
+                    elif re.match(CLIENT_SENT_NICK, message):
+                        if not user.named:
+                            print("Usuário enviou seu nickname/apelido.\n")
+                            new_nickname = message.split()[1]
+                            if new_nickname not in map(lambda x: x.nickname, user_list.values()):
+                                user.nickname = new_nickname
+                                user.named = True
+                                ret_message = "/joined {}\n".format(user.nickname)
+                                broadcast_message(connections_list, server, ret_message)
+                            else:
+                                print("Usuário escolheu nome já existente: {}\n".format(new_nickname))
+                                curr_socket.send(b"/error\n")
                         else:
-                            print("Usuário escolheu nome já existente: {}\n".format(new_nickname))
-                            curr_socket.send(b"/error\n")
+                            print("Usuário atualizou seu nickname/apelido.\n")
+                            old_nick = user.nickname
+                            new_nickname = message.split()[1]
+                            if new_nickname not in map(lambda x: x.nickname, user_list.values()):
+                                user.nickname = new_nickname
+                                ret_message = "/renamed {} {}\n".format(old_nick, user.nickname)
+                                broadcast_message(connections_list, server, ret_message)
+                            else:
+                                print("Erro! Usuário escolheu nome já existente: {}\n".format(new_nickname))
+                                curr_socket.send(b"/error\n")
                     else:
-                        print("Usuário atualizou seu nickname/apelido.\n")
-                        old_nick = user.nickname
-                        new_nickname = message.split()[1]
-                        if new_nickname not in map(lambda x: x.nickname, user_list.values()):
-                            user.nickname = new_nickname
-                            ret_message = "/renamed {} {}\n".format(old_nick, user.nickname)
-                            print("Enviando {}\n".format(ret_message))
+                        if not user.named:
+                            print("Erro! Enviando resposta padrão /error...\n")
+                            curr_socket.send(b"/error\n")
+                        else:
+                            ret_message = "{}: {}".format(user.nickname, message)
                             broadcast_message(connections_list, server, ret_message)
-                        else:
-                            print("Usuário escolheu nome já existente: {}\n".format(new_nickname))
-                            curr_socket.send(b"/error\n")
-                else:
-                    if not user.named:
-                        print("Error! Enviando resposta padrão /error...\n")
-                        curr_socket.send(b"/error\n")
-                    else:
-                        ret_message = "{}: {}\n".format(user.nickname, message)
-                        print("Enviando {}\n".format(ret_message))
-                        broadcast_message(connections_list, server, ret_message)
-                print("Enviado! Repetindo fluxo...\n")
+                    print("Enviado! Repetindo fluxo...\n")
     print("Conexão encerrada.\n")
